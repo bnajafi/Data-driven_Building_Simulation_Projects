@@ -155,6 +155,7 @@ CV_LinearPredictions = cross_val_predict(linear_reg, DF_features, DF_target, cv 
 CV_LinearPredictions_DF = pd.DataFrame(CV_LinearPredictions, index = DF_target.index, columns = ["Appliances_predicted_CV"])
 final_CV_LinearPredictions_DF = DF_target.join(CV_LinearPredictions_DF)
 
+"""
 residuals_CV = pd.DataFrame(final_CV_LinearPredictions_DF["Appliances_predicted_CV"] - final_CV_LinearPredictions_DF["Appliances"], columns = ["Residuals"])
 residuals_dates_CV = residuals_CV['2016-05-05']
 
@@ -174,7 +175,7 @@ plt.grid()
 plt.title("RESIDUALS")
 plt.xlabel("date")
 plt.show()
-
+"""
 
 CV_R2_score = r2_score(final_CV_LinearPredictions_DF["Appliances"],final_CV_LinearPredictions_DF["Appliances_predicted_CV"])
 CV_mean_absolute_error = mean_absolute_error(final_CV_LinearPredictions_DF["Appliances"], final_CV_LinearPredictions_DF["Appliances_predicted_CV"])
