@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-DataFolderPath = "C:\Users\SilviaAnna\Desktop\progetto\spanish datadriven building\DataSet"
+DataFolderPath = "C:\Users\SilviaAnna\Desktop\Temperature Prediction of a Spanish Building Cordieri-Persico\spanish datadriven building\DataSet"
 FileName= "NEW-DATA-1.T15.txt"
 FilePath = DataFolderPath+"/"+FileName
 
@@ -78,7 +78,7 @@ dayOrNotVector= [dayDetector(thisHour) for thisHour in hoursOfDayVector] #dove c
     
 DF_FinalDataSet["weekend"]= [weekendDetector(thisDay) for thisDay in DF_FinalDataSet.index.dayofweek]   
 DF_FinalDataSet["day_night"]= [dayDetector(thisHour) for thisHour in DF_FinalDataSet.index.hour]  #adds more columns by appling the functions previously defined
-DF_FinalDataSet.drop(DF_FinalDataSet.columns[[0,1,6,8,9,10,11,12,13,14,15,17,18,19,23]],axis=1,inplace=True);
+DF_FinalDataSet.drop(DF_FinalDataSet.columns[[0,1,2,4,5,6,7,9,11,12,13,14,15,17,18,19,23]],axis=1,inplace=True);
 DF_FinalDataSet.dropna(inplace=True)    
 
 DF_FinalDataSet.corr()
