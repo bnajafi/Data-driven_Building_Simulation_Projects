@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """
 Data Driven Simulation of a domestic house in Spain
 
@@ -15,13 +14,36 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+def lag_column(df,column_names,lag_period):    
+    for column_name in column_names:
+        if(column_name=="Sun Irradiance"):
+            for i in range(1,lag_period,1):
+                new_column_name = column_name+"-"+str(i)+"hr"
+                df[new_column_name]=(df[column_name]).shift(i*4)
+        elif(column_name=="Outdoor Temperature Sensor"):
+            for i in range(1,lag_period):
+                new_column_name = column_name+"-"+str(i)+"hr"
+                df[new_column_name]=(df[column_name]).shift(i*4)
+        
+        elif(column_name=="Carbon dioxide level [ppm]"):
+            for i in range(1,lag_period*2,2):
+                new_column_name = column_name+"-"+str(i)+"hr"
+                df[new_column_name]=(df[column_name]).shift(i*4)
+        
+        else:
+            for i in range(1,lag_period*4,4):
+                new_column_name = column_name+"-"+str(i)+"hr"
+                df[new_column_name]=(df[column_name]).shift(i*4)
+                  
+    return df  
+
 
 def normalize(df):
     return (df - df.min())/(df.max()-df.min())  
         
 #### Spanish Datadriven Building with Dataset from a monitor system mounted in a domotic house
 
-dataframe = "C:/Users/BOB/Desktop/EETBS Project/SpanishDatadriven_ELKhoudari_Imad_Soliman"
+dataframe = "C:/Users/BOB/Desktop/SpanishDatadriven_ELKhoudari_Imad_Soliman"
 DataFile = dataframe+'/'+"DataSet.csv"
 Desired_Data = pd.read_csv(DataFile,sep=',',index_col=2)
 
@@ -54,6 +76,9 @@ Desired_Column.describe()
 Desired_Column.rename(columns={"3:Temperature_Comedor_Sensor":"Indoor Temperature Sensor","18:Meteo_Exterior_Piranometro":"Sun Irradiance", 
                            "22:Temperature_Exterior_Sensor":"Outdoor Temperature Sensor","6:CO2_Comedor_Sensor":"Carbon dioxide level [ppm]",
                              "15:Meteo_Exterior_Sol_Oest":"Sun light in west [lux]"},inplace=True)  #Renaming columns
+
+Desired_Column["Sun Irradiance"][Desired_Column["Sun Irradiance"]<0.0]=0  #Setting the negative value as zero
+
 Desired_Column.head()
 Desired_Column.describe()
 
@@ -168,14 +193,50 @@ plt.legend(Carbon_Dioxide)
 plt.show()
 """
 
+
+
+
+
+
+
+# Updating Our Project with a Lagging function to do more lagging that will help us in predciting Inside Temperature with more accuracy
+
+DF_lagged=Desired_Column.copy() 
+
+DF_lagged=lag_column(DF_lagged,["Sun Irradiance","Outdoor Temperature Sensor","Indoor Temperature Sensor","Carbon dioxide level [ppm]"],6)  #Passing values in function
+DF_lagged.dropna(inplace=True)
+
+
+import seaborn as sns
+fig = plt.figure()
+plot = fig.add_axes()
+plot = sns.heatmap(DF_lagged.corr(), annot=False)
+plot.xaxis.tick_top() 
+plt.yticks(rotation=0)
+plt.xticks(rotation=90)
+plt.show()
+
+
+DF_Lagged_Sliced = DF_lagged["2012-04-25 00:00:00":"2012-04-29 23:45:00"]
+
+DF_Lagged_Sliced.plot()
+plt.xlabel('Time')
+plt.ylabel('variables')
+plt.show()
+
+DF_Lagged_Normalized = normalize(DF_Lagged_Sliced).plot()
+
+normalize(DF_Lagged_Sliced).head(0)
+
+
+
 #Testing Our Model and Prediction of Inside Temperature
 
 #Defining our Target Value and the Effecting Features
 
-target_data = Desired_Column['Indoor Temperature Sensor']
-features_data = Desired_Column[['Carbon dioxide level [ppm]','Sun light in west [lux]',
-                                'Sun Irradiance','Outdoor Temperature Sensor']]
-                                
+target_data = DF_Lagged_Sliced[['Indoor Temperature Sensor']]
+features_data = DF_Lagged_Sliced[[c for c in DF_lagged.columns if c not in ["Indoor Temperature Sensor"]]]
+             
 
 #First Method : Linear regression
 
@@ -190,11 +251,11 @@ linear_reg.fit(X_train,y_train)
 prediction = linear_reg.predict(X_test)
 
 predict_series = pd.Series(prediction.ravel(),index=y_test.index).rename('Predicted T_inside')
-joined = pd.DataFrame(predict_series).join(y_test)
-joined.head()
+Joined = pd.DataFrame(predict_series).join(y_test)
+Joined.head()
 
 """
-joined["2012-04-28 00:00:00":"2012-04-29 23:45:00"].plot()
+Joined.plot()
 plt.show()
 plt.xlabel('Time')
 plt.ylabel('variables')
