@@ -16,7 +16,7 @@ def read_file(file_name):
     
     return data_set
     
-DF_DataSet = read_file("C:/Users/Akwesi/Desktop/Our_Project/dataset1.csv")
+DF_DataSet = read_file("C:/Users/Danish/Desktop/Project Building System/DataDriven Analysis/dataset1.csv")
 DF_DataSet.head()
 DF_DataSet.describe() #obtain a summary of the data...e.g mean max min std etc
 
@@ -65,42 +65,81 @@ plt.xlabel('Timestamp ')
 plt.ylabel('Variables')
 plt.show()
 
-#Now we select two days data to analyse
-#Selected_Data = dataSet_Normalized['2012-03-29 00:00:00':'2012-04-04 23:45:00'] # for one week
-#Selected_Data.plot()
 # In order to better check for lag with a better value we make a day slice and plot
 Selected_Data1 = dataSet_Normalized['2012-03-20 00:00:00':'2012-03-21 23:45:00'] # for a day
 Selected_Data1.plot()
 plt.xlabel('Timestamp ')
 plt.ylabel('Variables')
 plt.show()
-#DF = Selected_Data1[['Inside_Temp_sensor','Solar_irradiance']]
-#DF.plot()
+
+#--------------------------------------------------------------------------------------------------------
+# For giving lagged features, we first create the copy of our selected data frame. 
+#Then defining and using the function,we will create the lagged features for Sun Irradiation and Outdoor Temperature.
+DF_lagged=DF_SelectedVariables.copy() 
+
+'''A function to create lag columns of selected columns passed as arguments'''
+def lag_column(df,column_names,lag_period):    
+    for column_name in column_names:
+        if(column_name=="Solar_irradiance"):
+            for i in range(3,lag_period+1):
+                new_column_name = column_name+"_"+str(i)+"hr"
+                df[new_column_name]=(df[column_name]).shift(i*4)
+        elif(column_name=="Outside_Temp_sensor"):
+            for i in range(1,lag_period+1):
+                new_column_name = column_name+"_"+str(i)+"hr"
+                df[new_column_name]=(df[column_name]).shift(i*4)
+        else:
+            for i in range(1,lag_period*4):
+                new_column_name = column_name+"_"+str(i)+"hr before"
+                df[new_column_name]=(df[column_name]).shift(-i*4)
+                  
+    return df      
+
+DF_lagged=lag_column(DF_lagged,["Solar_irradiance","Outside_Temp_sensor","Inside_Temp_sensor"],6)  #Passing values in function
+DF_lagged.dropna(inplace=True)
+
+DF_lagged.head(0)
+
+#Creating a plot using heatmap functionality to provide correlations between columns of dataset
+fig = plt.figure("Figure for providing insight about Correlations")
+plot = fig.add_axes()
+plot = sns.heatmap(DF_lagged.corr(), annot=False)
+plot.xaxis.tick_top() 
+plt.yticks(rotation=0)
+plt.xticks(rotation=90)
+plt.show()
+#--------------------------------------------------------------------------------------------------------------------
 
 # Since the plot for wind shows a lag of approx 10hrs we need to shift the plot by 40 time steps
 # for Outside temp and Solar_irradiance, we shift by 4 time steps for better correlation
 dataSet_Normalized['Wind_10hours'] = dataSet_Normalized['External_Wind[m/s]'].shift(40)
-dataSet_Normalized['Outside_Temp_sensor_4hrs'] = dataSet_Normalized['Outside_Temp_sensor'].shift(4)
-dataSet_Normalized['Solar_irradiance_1hr'] = dataSet_Normalized['Solar_irradiance'].shift(4)
+dataSet_Normalized['Inside_Temp_sensor_1hr'] = dataSet_Normalized['Inside_Temp_sensor'].shift(-4)
+dataSet_Normalized['Solar_irradiance_3hr'] = dataSet_Normalized['Solar_irradiance'].shift(12)
 dataSet_Normalized.dropna(inplace=True)
-Selected = dataSet_Normalized[['Inside_Temp_sensor','Wind_10hours','Outside_Temp_sensor_4hrs','Solar_irradiance_1hr']]
+Selected = dataSet_Normalized[['Inside_Temp_sensor','Inside_Temp_sensor_1hr','Wind_10hours','Outside_Temp_sensor','Solar_irradiance_3hr']]
 
-Selected['2012-03-20 00:00:00':'2012-03-21 23:45:00'].plot()
+DF_lagged['2012-03-20 00:00:00':'2012-03-21 23:45:00'].plot()
+plt.xlabel('Timestamp ')
+plt.ylabel('Variables')
+plt.show()
+
+#for 24hrs plot
+DF_lagged['2012-03-21 00:00:00':'2012-03-21 23:59:00'].plot()
 plt.xlabel('Timestamp ')
 plt.ylabel('Variables')
 plt.show()
 
 #We choose to correlate the effect of Wind variation and Outdoor Temperature on Inside Temperature
-dataSet_Normalized_sliced = dataSet_Normalized['2012-03-21 00:00:00':'2012-03-25 23:45:00']
-Temp_Effect=dataSet_Normalized_sliced[['Inside_Temp_sensor','Outside_Temp_sensor_4hrs','Outside_Temp_sensor']]
-Wind_Effect=dataSet_Normalized_sliced[['Inside_Temp_sensor','Wind_10hours','External_Wind[m/s]']]
+dataSet_Normalized_sliced = dataSet_Normalized['2012-03-21 00:00:00':'2012-03-21 23:59:00']
+Temp_Effect=dataSet_Normalized_sliced[['Solar_irradiance_3hr','Inside_Temp_sensor_1hr','Outside_Temp_sensor']]
+Wind_Effect=dataSet_Normalized_sliced[['Inside_Temp_sensor_1hr','Wind_10hours','External_Wind[m/s]']]
 #Solar_Irrad=Selected_Data1['2012-03-21 00:00:00':'2012-03-22 23:45:00'][['Inside_Temp_sensor','Solar_irradiance_6hrs']]
 #Solar_Irrad_wind=Selected_Data1['2012-03-21 00:00:00':'2012-03-22 23:45:00'][['Wind_10hours','Solar_irradiance_6hrs']]
 
 plt.figure()
 plt.subplot(2,1,1)
 plt.plot(Temp_Effect)
-plt.title('T_in & T_out')
+plt.title('Variation of T_in with T_out and Solar Irradiance')
 plt.xlabel('Time')
 plt.ylabel('variables')
 plt.legend(Temp_Effect)
@@ -124,23 +163,43 @@ plt.xticks(rotation=90)
 plt.show()
 
 #dataSet_Normalized_sliced.columns
+#Variation of T out with T in
 fig = plt.figure()
 ax1 = fig.add_subplot(2,1,1)
 ax2 = fig.add_subplot(2,1,2)
-dataSet_Normalized_sliced.iloc[:,6].plot(ax=ax1,legend=True,color="r")
-dataSet_Normalized_sliced.iloc[:,0].plot(ax=ax2,legend=True,color="b")
+
+dataSet_Normalized_sliced.iloc[:,3].plot(ax=ax1,legend=True,color="r")
+dataSet_Normalized_sliced.iloc[:,6].plot(ax=ax2,legend=True,color="b")
 ax1.set_ylabel("Outside Temperature sensor, [C]", color="r")
 ax2.set_ylabel("Inside Temperature sensor, [C]", color="b")
 ax1.tick_params(axis='y',colors='r')
 ax2.tick_params(axis='y',colors='b')
+plt.tight_layout()
 plt.show()
 
+#Variation of T in  with Solar irradiation
+fig1 = plt.figure()
+ax3 = fig1.add_subplot(2,1,1)
+ax4 = fig1.add_subplot(2,1,2)
+dataSet_Normalized_sliced.iloc[:,7].plot(ax=ax3,legend=True,color="coral")
+dataSet_Normalized_sliced.iloc[:,6].plot(ax=ax4,legend=True,color="b")
+ax1.set_ylabel("Solar_irradiance[W/m2]", color="coral")
+ax2.set_ylabel("Inside Temperature sensor, [C]", color="b")
+ax1.tick_params(axis='y',colors='coral')
+ax2.tick_params(axis='y',colors='b')
+plt.tight_layout()
+plt.show()
+
+
+"""
+plt.close('all')
+"""
 #===============================================================================================================
-DF_SelectedVariables=dataSet_Normalized[['Inside_Temp_sensor','Outside_Temp_sensor_4hrs','Wind_10hours']]
+DF_SelectedVariables=DF_lagged[['Inside_Temp_sensor_1hr before','Outside_Temp_sensor','Solar_irradiance_3hr','External_Wind[m/s]']]
 
 #Testing Our Model
-target = DF_SelectedVariables['Inside_Temp_sensor']
-features = DF_SelectedVariables[['Outside_Temp_sensor_4hrs','Wind_10hours']]
+target = DF_SelectedVariables['Inside_Temp_sensor_1hr before']
+features = DF_SelectedVariables[['Outside_Temp_sensor','Solar_irradiance_3hr','External_Wind[m/s]']]
 
 #.......................................................................................................
 #Method 1:Using Linear regression
@@ -155,10 +214,17 @@ predict_series = pd.Series(prediction.ravel(),index=y_test.index).rename('Predic
 joined = pd.DataFrame(predict_series).join(y_test)
 #joined.isnull()
 
-joined['2012-03-20':'2012-03-27'].plot()
+#for 24hrs
+joined['2012-03-21 00:00:00':'2012-03-21 23:59:00'].plot()
 plt.show()
 plt.xlabel('Timestamp')
 plt.ylabel('variables')
+
+#for one Month
+#joined['2012-03-15':'2012-04-15'].plot()
+#plt.xlabel('Timestamp')
+#plt.ylabel('variables')
+#plt.show()
 
 # Calculating the accuracy metrics of the implemented machine learning model
 from sklearn.metrics import mean_absolute_error,mean_squared_error,r2_score
@@ -166,10 +232,10 @@ R2_score = r2_score(y_test,prediction)
 mean_absolute_error = mean_absolute_error(y_test,prediction)
 mean_squared_error = mean_squared_error(y_test,prediction)
 coeff_variation = np.sqrt(mean_squared_error)/y_test.mean()
-print "The R2_score is: "+str(R2_score)
-print "The Mean absoulute error is: "+str(mean_absolute_error)
-print "The Mean squared error is: "+str(mean_squared_error)
-print "The Coefficient of variation is: "+str(coeff_variation)
+print ("The R2_score is: "+str(R2_score))
+print ("The Mean absoulute error is: "+str(mean_absolute_error))
+print ("The Mean squared error is: "+str(mean_squared_error))
+print ("The Coefficient of variation is: "+str(coeff_variation))
 
 
 #========================================================================================================
@@ -183,31 +249,35 @@ predict_DF_SVR_CV=pd.DataFrame(predict_SVR_CV, index = target.index,columns=["Pr
 predict_DF_SVR_CV = predict_DF_SVR_CV.join(target).dropna()
 
 # Plotting the learned dataset and verifying the predicted values with actual ones
-predict_DF_SVR_CV['2012-03-20':'2012-03-27'].plot()
-fig = plt.figure()
+predict_DF_SVR_CV['2012-03-21 00:00:00':'2012-03-21 23:59:00'].plot()
+plt.show()
+
+#for  one month prediction
+#predict_DF_SVR_CV['2012-03-15':'2012-04-15'].plot()
+#plt.show()
+
+fig = plt.figure("Actual Vs Prediction by Random Forest")
 ax1 = fig.add_subplot(111)
-plot = sns.regplot(x='Inside_Temp_sensor', y="Predicted T_in_SVR_CV",
-                   data=predict_DF_SVR_CV,ax=ax1,
-                   line_kws={"lw":3,"alpha":0.5})
-plt.title('Actual indoor T VS. Predicted Indoor T from SVM')
-plot.set_xlim([0,1])
-plot.set_ylim([0,1])
-plot.set_xlabel('Actual indoor Temp')
-plot.set_ylabel('Predicted Indoor T from SVM')
+plot = sns.regplot(x='Inside_Temp_sensor_1hr before', y='Predicted T_in_SVR_CV',
+                   data = predict_DF_SVR_CV,ax=ax1,line_kws={"lw":3,"alpha":0.5})
+                   
+plt.title('Predicted Inside Room Temp VS. Actual inside room Temperature')
 regline = plot.get_lines()[0];
 regline.set_color('coral')
+plot.set_xlabel('Indoor Temperature Sensor')
+plot.set_ylabel('Predicted Inside_Temp')
 plt.show()
 
 # Calculating the accuracy metrics of the implemented machine learning model
 from sklearn.metrics import mean_absolute_error,mean_squared_error,r2_score
-R2_score_DF_SVR_CV = r2_score(predict_DF_SVR_CV['Inside_Temp_sensor'],predict_DF_SVR_CV["Predicted T_in_SVR_CV"])
-mean_absolute_error_SVR_CV = mean_absolute_error(predict_DF_SVR_CV["Inside_Temp_sensor"],predict_DF_SVR_CV["Predicted T_in_SVR_CV"])
-mean_squared_error_SVR_CV = mean_squared_error(predict_DF_SVR_CV["Inside_Temp_sensor"],predict_DF_SVR_CV["Predicted T_in_SVR_CV"])
-coeff_variation_SVR_CV = np.sqrt(mean_squared_error_SVR_CV)/predict_DF_SVR_CV["Inside_Temp_sensor"].mean()
-print "The R2_score for SVR is: "+str(R2_score_DF_SVR_CV)
-print "The Mean absoulute error for SVR is: "+str(mean_absolute_error_SVR_CV)
-print "The Mean squared error for SVR is: "+str(mean_squared_error_SVR_CV)
-print "The Coefficient of variation for SVR is: "+str(coeff_variation_SVR_CV)
+R2_score_DF_SVR_CV = r2_score(predict_DF_SVR_CV['Inside_Temp_sensor_1hr before'],predict_DF_SVR_CV["Predicted T_in_SVR_CV"])
+mean_absolute_error_SVR_CV = mean_absolute_error(predict_DF_SVR_CV["Inside_Temp_sensor_1hr before"],predict_DF_SVR_CV["Predicted T_in_SVR_CV"])
+mean_squared_error_SVR_CV = mean_squared_error(predict_DF_SVR_CV["Inside_Temp_sensor_1hr before"],predict_DF_SVR_CV["Predicted T_in_SVR_CV"])
+coeff_variation_SVR_CV = np.sqrt(mean_squared_error_SVR_CV)/predict_DF_SVR_CV["Inside_Temp_sensor_1hr before"].mean()
+print ("The R2_score for SVR is: "+str(R2_score_DF_SVR_CV))
+print ("The Mean absoulute error for SVR is: "+str(mean_absolute_error_SVR_CV))
+print ("The Mean squared error for SVR is: "+str(mean_squared_error_SVR_CV))
+print ("The Coefficient of variation for SVR is: "+str(coeff_variation_SVR_CV))
 
    
 #========================================================================================================================================         
@@ -219,30 +289,29 @@ predict_RF_CV = cross_val_predict(reg_RF,features,target,cv=10)
 predict_DF_RF_CV=pd.DataFrame(predict_RF_CV, index = target.index,columns=['Predicted_T_in_RF_CV'])
 predict_DF_RF_CV = predict_DF_RF_CV.join(target).dropna()
 
-predict_DF_RF_CV['2012-03-20':'2012-03-27'].plot()
-fig = plt.figure()
+predict_DF_RF_CV['2012-03-21 00:00:00':'2012-03-21 23:59:00'].plot()
+
+fig = plt.figure("Actual Vs Prediction by Random Forest")
 ax1 = fig.add_subplot(111)
-plot = sns.regplot(x='Inside_Temp_sensor', y='Predicted_T_in_RF_CV',
-                   data=predict_DF_RF_CV,ax=ax1,
-                   line_kws={"lw":3,"alpha":0.5})
-plt.title('Actual indoor T VS. Predicted Indoor T from RF')
-plot.set_xlim([0,1])
-plot.set_ylim([0,1])
-plot.set_xlabel('Actual indoor Temp')
-plot.set_ylabel('Predicted Indoor T from RF')
+plot = sns.regplot(x='Inside_Temp_sensor_1hr before', y='Predicted_T_in_RF_CV',
+                   data = predict_DF_RF_CV,ax=ax1,line_kws={"lw":3,"alpha":0.5})
+                   
+plt.title('Predicted Inside Room Temp VS. Actual inside room Temperature')
 regline = plot.get_lines()[0];
-regline.set_color('r')
+regline.set_color('red')
+plot.set_xlabel('Inside_Temp_sensor_1hr before')
+plot.set_ylabel('Predicted Inside_Temp')
 plt.show()
 
 from sklearn.metrics import mean_absolute_error,mean_squared_error,r2_score
-R2_score_DF_RF_CV = r2_score(predict_DF_RF_CV['Inside_Temp_sensor'],predict_DF_RF_CV['Predicted_T_in_RF_CV'])
-mean_absolute_error_DF_CV =  mean_absolute_error(predict_DF_RF_CV['Inside_Temp_sensor'],predict_DF_RF_CV['Predicted_T_in_RF_CV'])
-mean_squared_error_DF_CV = mean_squared_error(predict_DF_RF_CV['Inside_Temp_sensor'],predict_DF_RF_CV['Predicted_T_in_RF_CV'])
-coeff_variation_DF_CV = np.sqrt(mean_squared_error_DF_CV)/predict_DF_RF_CV['Inside_Temp_sensor'].mean()
-print "The R2_score for RF is: "+str(R2_score_DF_RF_CV)
-print "The Mean absoulute for RF error is: "+str(mean_absolute_error_DF_CV)
-print "The Mean squared error for RF is: "+str(mean_squared_error_DF_CV)
-print "The Coefficient of variation for RF is: "+str(coeff_variation_DF_CV)
+R2_score_DF_RF_CV = r2_score(predict_DF_RF_CV['Inside_Temp_sensor_1hr before'],predict_DF_RF_CV['Predicted_T_in_RF_CV'])
+mean_absolute_error_DF_CV =  mean_absolute_error(predict_DF_RF_CV['Inside_Temp_sensor_1hr before'],predict_DF_RF_CV['Predicted_T_in_RF_CV'])
+mean_squared_error_DF_CV = mean_squared_error(predict_DF_RF_CV['Inside_Temp_sensor_1hr before'],predict_DF_RF_CV['Predicted_T_in_RF_CV'])
+coeff_variation_DF_CV = np.sqrt(mean_squared_error_DF_CV)/predict_DF_RF_CV['Inside_Temp_sensor_1hr before'].mean()
+print ("The R2_score for RF is: "+str(R2_score_DF_RF_CV))
+print ("The Mean absoulute for RF error is: "+str(mean_absolute_error_DF_CV))
+print ("The Mean squared error for RF is: "+str(mean_squared_error_DF_CV))
+print ("The Coefficient of variation for RF is: "+str(coeff_variation_DF_CV))
 
 #Making a table of our anaylsis from the machine Learning process..using Dictionary
 df = pd.DataFrame({'Metrics':['R2_score','mean absolute error','mean squared error','coefficient variation'],
